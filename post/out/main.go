@@ -85,9 +85,8 @@ func interpolateMessage(message *utils.OutMessage, sourceDir string) {
 		message.Attachments[i] = interpolateMessageAttachment(a, sourceDir)
 	}
 
-	message.SlackBlocks = make([]slack.Block, len(message.Blocks.BlockSet))
 	for i, b := range message.Blocks.BlockSet {
-		message.SlackBlocks[i] = interpolateMessageBlock(b, sourceDir)
+		message.Blocks.BlockSet[i] = interpolateMessageBlock(b, sourceDir)
 	}
 }
 

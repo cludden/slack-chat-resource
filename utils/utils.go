@@ -70,16 +70,16 @@ type InParams struct {
 	TextPattern *Regexp `json:"text_pattern"`
 }
 
-// OutParams type definition
-type OutParams struct {
-	Message     *OutMessage `json:"message"`
-	MessageFile string      `json:"message_file"`
-}
-
 // OutRequest type definition
 type OutRequest struct {
 	Source Source    `json:"source"`
 	Params OutParams `json:"params"`
+}
+
+// OutParams type definition
+type OutParams struct {
+	Message     *OutMessage `json:"message"`
+	MessageFile string      `json:"message_file"`
 }
 
 // OutMessage type definition
@@ -87,7 +87,6 @@ type OutMessage struct {
 	Attachments []slack.Attachment `json:"attachments"`
 	Blocks      slack.Blocks       `json:"blocks"`
 	Text        string             `json:"text"`
-	SlackBlocks []slack.Block
 	slack.PostMessageParameters
 }
 
