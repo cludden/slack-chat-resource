@@ -75,11 +75,29 @@ release:
     name: slack-chat-resource
 
 dockers:
-  - builds:
+  - binaries:
+      - check
+      - in
+      - out
+    builds:
       - slack-read-resource-check
       - slack-read-resource-in
       - slack-read-resource-out
+    dockerfile: Dockerfile
     image_templates:
       - "cludden/slack-read-resource:latest"
       - "cludden/slack-read-resource:{{ .Tag }}"
       - "cludden/slack-read-resource:v{{ .Major }}"
+  - binaries:
+      - check
+      - in
+      - out
+    builds:
+      - slack-post-resource-check
+      - slack-post-resource-in
+      - slack-post-resource-out
+    dockerfile: Dockerfile
+    image_templates:
+      - "cludden/slack-post-resource:latest"
+      - "cludden/slack-post-resource:{{ .Tag }}"
+      - "cludden/slack-post-resource:v{{ .Major }}"
