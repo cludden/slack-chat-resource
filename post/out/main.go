@@ -8,11 +8,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 )
-
-type slackBlock struct {
-	Type string `json:"type"`
-}
 
 func main() {
 	if len(os.Args) < 2 {
@@ -103,24 +100,24 @@ func interpolateMessageAttachment(attachment slack.Attachment, sourceDir string)
 func interpolateMessageBlock(block slack.Block, sourceDir string) slack.Block {
 	switch block.BlockType() {
 	case slack.MBTAction:
-		b := block.(slack.ActionBlock)
+		b := block.(*slack.ActionBlock)
 		for i, e := range b.Elements.ElementSet {
 			b.Elements.ElementSet[i] = interpolateMessageBlockElement(e, sourceDir)
 		}
-		return &b
+		return b
 	case slack.MBTContext:
-		b := block.(slack.ContextBlock)
+		b := block.(*slack.ContextBlock)
 		for i, e := range b.ContextElements.Elements {
 			b.ContextElements.Elements[i] = interpolateMessageMixedElement(e, sourceDir)
 		}
-		return &b
+		return b
 	case slack.MBTSection:
-		b := block.(slack.SectionBlock)
+		b := block.(*slack.SectionBlock)
 		interpolateMessageMixedElement(b.Text, sourceDir)
 		for i, e := range b.Fields {
 			b.Fields[i] = interpolateTextBlock(e, sourceDir)
 		}
-		return &b
+		return b
 	}
 	return block
 }
@@ -133,6 +130,7 @@ func interpolateMessageMixedElement(elem slack.MixedElement, sourceDir string) s
 	switch elem.MixedElementType() {
 	case slack.MixedElementText:
 		e := elem.(slack.TextBlockObject)
+		e.Text = interpolate(e.Text, sourceDir)
 		return &e
 	}
 	return elem
@@ -144,21 +142,14 @@ func interpolateTextBlock(b *slack.TextBlockObject, sourceDir string) *slack.Tex
 }
 
 func getFileContents(path string) string {
-	file, err := os.Open(path)
-	if err != nil {
-		fatal("opening file", err)
-	}
-
-	data, err := ioutil.ReadAll(file)
+	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		fatal("reading file", err)
 	}
-
-	return string(data)
+	return strings.TrimSpace(string(data))
 }
 
 func interpolate(text string, sourceDir string) string {
-
 	var out string
 
 	start := 0
