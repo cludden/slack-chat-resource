@@ -9,6 +9,23 @@ import (
 // Regexp type definition
 type Regexp struct{ regexp.Regexp }
 
+// UnmarshalJSON custom unmarshaller
+func (r *Regexp) UnmarshalJSON(payload []byte) error {
+	var pattern string
+	err := json.Unmarshal(payload, &pattern)
+	if err != nil {
+		return err
+	}
+
+	regexp, err := regexp.Compile(pattern)
+	if err != nil {
+		return err
+	}
+
+	*r = Regexp{*regexp}
+	return nil
+}
+
 // MessageFilter type definition
 type MessageFilter struct {
 	AuthorID    string  `json:"author"`
@@ -68,8 +85,9 @@ type OutRequest struct {
 // OutMessage type definition
 type OutMessage struct {
 	Attachments []slack.Attachment `json:"attachments"`
-	Blocks      []slack.Block      `json:"blocks"`
+	Blocks      slack.Blocks       `json:"blocks"`
 	Text        string             `json:"text"`
+	SlackBlocks []slack.Block
 	slack.PostMessageParameters
 }
 
@@ -91,21 +109,4 @@ type CheckResponse []Version
 // SlackRequest type definition
 type SlackRequest struct {
 	Contents string
-}
-
-// UnmarshalJSON custom unmarshaller
-func (r *Regexp) UnmarshalJSON(payload []byte) error {
-	var pattern string
-	err := json.Unmarshal(payload, &pattern)
-	if err != nil {
-		return err
-	}
-
-	regexp, err := regexp.Compile(pattern)
-	if err != nil {
-		return err
-	}
-
-	*r = Regexp{*regexp}
-	return nil
 }

@@ -10,6 +10,10 @@ import (
 	"path/filepath"
 )
 
+type slackBlock struct {
+	Type string `json:"type"`
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		println("usage: " + os.Args[0] + " <source>")
@@ -81,8 +85,9 @@ func interpolateMessage(message *utils.OutMessage, sourceDir string) {
 		message.Attachments[i] = interpolateMessageAttachment(a, sourceDir)
 	}
 
-	for i, b := range message.Blocks {
-		message.Blocks[i] = interpolateMessageBlock(b, sourceDir)
+	message.SlackBlocks = make([]slack.Block, len(message.Blocks.BlockSet))
+	for i, b := range message.Blocks.BlockSet {
+		message.SlackBlocks[i] = interpolateMessageBlock(b, sourceDir)
 	}
 }
 
@@ -205,8 +210,8 @@ func send(message *utils.OutMessage, request *utils.OutRequest, client *slack.Cl
 	if len(message.Attachments) > 0 {
 		opts = append(opts, slack.MsgOptionAttachments(message.Attachments...))
 	}
-	if len(message.Blocks) > 0 {
-		opts = append(opts, slack.MsgOptionBlocks(message.Blocks...))
+	if len(message.Blocks.BlockSet) > 0 {
+		opts = append(opts, slack.MsgOptionBlocks(message.Blocks.BlockSet...))
 	}
 
 	_, timestamp, err := client.PostMessage(request.Source.ChannelID, opts...)
