@@ -1,0 +1,85 @@
+# This is an example goreleaser.yaml file with some sane defaults.
+# Make sure to check the documentation at http://goreleaser.com
+before:
+  hooks:
+    # you may remove this if you don't use vgo
+    - go mod tidy
+builds:
+  - &build
+    id: slack-post-resource-check
+    main: ./post/check/main.go
+    binary: check
+    env:
+      - CGO_ENABLED=0
+    goarch:
+      - amd64
+    goos:
+      - linux
+  - <<: *build
+    id: slack-post-resource-in
+    main: ./post/in/main.go
+    binary: in
+  - <<: *build
+    id: slack-post-resource-out
+    main: ./post/out/main.go
+    binary: out
+  - <<: *build
+    id: slack-read-resource-check
+    main: ./read/check/main.go
+    binary: check
+  - <<: *build
+    id: slack-read-resource-in
+    main: ./read/in/main.go
+    binary: in
+  - <<: *build
+    id: slack-read-resource-out
+    main: ./read/out/main.go
+    binary: out
+
+archives:
+  - id: slack-read-resource
+    name_template: "slack-read-resource_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+    builds:
+      - slack-read-resource-check
+      - slack-read-resource-in
+      - slack-read-resource-out
+    files:
+      - LICENSE
+      - README.md
+  - id: slack-post-resource
+    name_template: "slack-post-resource_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+    builds:
+      - slack-post-resource-check
+      - slack-post-resource-in
+      - slack-post-resource-out
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  name_template: "{{ .Tag }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  github:
+    owner: cludden
+    name: slack-chat-resource
+
+dockers:
+  - builds:
+      - slack-read-resource-check
+      - slack-read-resource-in
+      - slack-read-resource-out
+    image_templates:
+      - "cludden/slack-read-resource:latest"
+      - "cludden/slack-read-resource:{{ .Tag }}"
+      - "cludden/slack-read-resource:v{{ .Major }}"

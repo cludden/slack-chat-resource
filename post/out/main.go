@@ -1,13 +1,13 @@
 package main
 
 import (
-    "encoding/json"
-    "io/ioutil"
-    "os"
-    "path/filepath"
-    "fmt"
-    "github.com/jleben/slack-chat-resource/utils"
-    "github.com/nlopes/slack"
+	"encoding/json"
+	"fmt"
+	"github.com/cludden/slack-chat-resource/utils"
+	"github.com/nlopes/slack"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 )
 
 func main() {
@@ -16,155 +16,216 @@ func main() {
 		os.Exit(1)
 	}
 
-    source_dir := os.Args[1]
+	sourceDir := os.Args[1]
 
-    var request utils.OutRequest
+	var request utils.OutRequest
 
-    request_err := json.NewDecoder(os.Stdin).Decode(&request)
-    if request_err != nil {
-        fatal("Parsing request.", request_err)
-    }
+	err := json.NewDecoder(os.Stdin).Decode(&request)
+	if err != nil {
+		fatal("Parsing request.", err)
+	}
 
-    if len(request.Source.Token) == 0 {
-        fatal1("Missing source field: token.")
-    }
+	if len(request.Source.Token) == 0 {
+		fatal1("Missing source field: token.")
+	}
 
-    if len(request.Source.ChannelId) == 0 {
-        fatal1("Missing source field: channel_id.")
-    }
+	if len(request.Source.ChannelID) == 0 {
+		fatal1("Missing source field: channel_id.")
+	}
 
-    if len(request.Params.MessageFile) == 0 && request.Params.Message == nil {
-        fatal1("Missing params field: message or message_file.")
-    }
+	if len(request.Params.MessageFile) == 0 && request.Params.Message == nil {
+		fatal1("Missing params field: message or message_file.")
+	}
 
-    var message *utils.OutMessage
+	var message *utils.OutMessage
 
-    if len(request.Params.MessageFile) != 0 {
-        message = new(utils.OutMessage)
-        read_message_file(filepath.Join(source_dir,request.Params.MessageFile), message)
-    } else {
-        message = request.Params.Message
-        interpolate_message(message, source_dir)
-    }
+	if len(request.Params.MessageFile) != 0 {
+		message = new(utils.OutMessage)
+		readMessageFile(filepath.Join(sourceDir, request.Params.MessageFile), message)
+	} else {
+		message = request.Params.Message
+		interpolateMessage(message, sourceDir)
+	}
 
-    {
-        fmt.Fprintf(os.Stderr, "About to send this message:\n")
-        m, _ := json.MarshalIndent(message, "", "  ")
-        fmt.Fprintf(os.Stderr, "%s\n", m)
-    }
+	{
+		fmt.Fprintf(os.Stderr, "About to send this message:\n")
+		m, _ := json.MarshalIndent(message, "", "  ")
+		fmt.Fprintf(os.Stderr, "%s\n", m)
+	}
 
-    slack_client := slack.New(request.Source.Token)
+	client := slack.New(request.Source.Token)
 
-    response := send(message, &request, slack_client)
+	response := send(message, &request, client)
 
-    response_err := json.NewEncoder(os.Stdout).Encode(&response)
-    if response_err != nil {
-        fatal("encoding response", response_err)
-    }
+	if err := json.NewEncoder(os.Stdout).Encode(&response); err != nil {
+		fatal("encoding response", err)
+	}
 }
 
-func read_message_file(path string, message * utils.OutMessage) {
-    file, open_err := os.Open(path)
-    if open_err != nil {
-        fatal("opening message file", open_err)
-    }
+func readMessageFile(path string, message *utils.OutMessage) {
+	file, err := os.Open(path)
+	if err != nil {
+		fatal("opening message file", err)
+	}
 
-    read_err := json.NewDecoder(file).Decode(message)
-    if read_err != nil {
-        fatal("reading message file", read_err)
-    }
+	if err := json.NewDecoder(file).Decode(message); err != nil {
+		fatal("reading message file", err)
+	}
 }
 
-func interpolate_message(message * utils.OutMessage, source_dir string) {
-    message.Text = interpolate(message.Text, source_dir)
-    message.ThreadTimestamp = interpolate(message.ThreadTimestamp, source_dir)
+func interpolateMessage(message *utils.OutMessage, sourceDir string) {
+	message.Text = interpolate(message.Text, sourceDir)
+	message.ThreadTimestamp = interpolate(message.ThreadTimestamp, sourceDir)
 
-    for i := 0; i < len(message.Attachments); i++ {
-        attachment := &message.Attachments[i]
-        attachment.Fallback = interpolate(attachment.Fallback, source_dir)
-        attachment.Title = interpolate(attachment.Title, source_dir)
-        attachment.TitleLink = interpolate(attachment.TitleLink, source_dir)
-        attachment.Pretext = interpolate(attachment.Pretext, source_dir)
-        attachment.Text = interpolate(attachment.Text, source_dir)
-        attachment.Footer = interpolate(attachment.Footer, source_dir)
-    }
+	for i, a := range message.Attachments {
+		message.Attachments[i] = interpolateMessageAttachment(a, sourceDir)
+	}
+
+	for i, b := range message.Blocks {
+		message.Blocks[i] = interpolateMessageBlock(b, sourceDir)
+	}
 }
 
-func get_file_contents(path string) string {
-    file, open_err := os.Open(path)
-    if open_err != nil {
-        fatal("opening file", open_err)
-    }
-
-    data, read_err := ioutil.ReadAll(file)
-    if read_err != nil {
-        fatal("reading file", read_err)
-    }
-
-    return string(data)
+func interpolateMessageAttachment(attachment slack.Attachment, sourceDir string) slack.Attachment {
+	attachment.Fallback = interpolate(attachment.Fallback, sourceDir)
+	attachment.Title = interpolate(attachment.Title, sourceDir)
+	attachment.TitleLink = interpolate(attachment.TitleLink, sourceDir)
+	attachment.Pretext = interpolate(attachment.Pretext, sourceDir)
+	attachment.Text = interpolate(attachment.Text, sourceDir)
+	attachment.Footer = interpolate(attachment.Footer, sourceDir)
+	return attachment
 }
 
-func interpolate(text string, source_dir string) string {
-
-    var out_text string
-
-    start_var := 0
-    end_var := 0
-    inside_var := false
-    c0 := '_'
-
-    for pos, c1 := range text {
-        if inside_var {
-            if c0 == '}' && c1 == '}' {
-                inside_var = false
-                end_var = pos + 1
-
-                var value string
-
-                if text[start_var+2] == '$' {
-                    var_name := text[start_var+3:end_var-2]
-                    value = os.Getenv(var_name)
-                } else {
-                    var_name := text[start_var+2:end_var-2]
-                    value = get_file_contents(filepath.Join(source_dir, var_name))
-                }
-
-                out_text += value
-            }
-        } else {
-            if c0 == '{' && c1 == '{' {
-                inside_var = true
-                start_var = pos - 1
-                out_text += text[end_var:start_var]
-            }
-        }
-        c0 = c1
-    }
-
-    out_text += text[end_var:]
-
-    return out_text
+func interpolateMessageBlock(block slack.Block, sourceDir string) slack.Block {
+	switch block.BlockType() {
+	case slack.MBTAction:
+		b := block.(slack.ActionBlock)
+		for i, e := range b.Elements.ElementSet {
+			b.Elements.ElementSet[i] = interpolateMessageBlockElement(e, sourceDir)
+		}
+		return &b
+	case slack.MBTContext:
+		b := block.(slack.ContextBlock)
+		for i, e := range b.ContextElements.Elements {
+			b.ContextElements.Elements[i] = interpolateMessageMixedElement(e, sourceDir)
+		}
+		return &b
+	case slack.MBTSection:
+		b := block.(slack.SectionBlock)
+		interpolateMessageMixedElement(b.Text, sourceDir)
+		for i, e := range b.Fields {
+			b.Fields[i] = interpolateTextBlock(e, sourceDir)
+		}
+		return &b
+	}
+	return block
 }
 
-func send(message *utils.OutMessage, request *utils.OutRequest, slack_client *slack.Client) utils.OutResponse {
+func interpolateMessageBlockElement(elem slack.BlockElement, sourceDir string) slack.BlockElement {
+	return elem
+}
 
-    _, timestamp, err := slack_client.PostMessage(request.Source.ChannelId, message.Text, message.PostMessageParameters)
+func interpolateMessageMixedElement(elem slack.MixedElement, sourceDir string) slack.MixedElement {
+	switch elem.MixedElementType() {
+	case slack.MixedElementText:
+		e := elem.(slack.TextBlockObject)
+		return &e
+	}
+	return elem
+}
 
-    if err != nil {
-        fatal("sending", err)
-    }
+func interpolateTextBlock(b *slack.TextBlockObject, sourceDir string) *slack.TextBlockObject {
+	b.Text = interpolate(b.Text, sourceDir)
+	return b
+}
 
-    var response utils.OutResponse
-    response.Version = utils.Version { "timestamp": timestamp }
-    return response
+func getFileContents(path string) string {
+	file, err := os.Open(path)
+	if err != nil {
+		fatal("opening file", err)
+	}
+
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		fatal("reading file", err)
+	}
+
+	return string(data)
+}
+
+func interpolate(text string, sourceDir string) string {
+
+	var out string
+
+	start := 0
+	end := 0
+	inside := false
+	c0 := '_'
+
+	for pos, c1 := range text {
+		if inside {
+			if c0 == '}' && c1 == '}' {
+				inside = false
+				end = pos + 1
+
+				var value string
+
+				if text[start+2] == '$' {
+					target := text[start+3 : end-2]
+					value = os.Getenv(target)
+				} else {
+					target := text[start+2 : end-2]
+					value = getFileContents(filepath.Join(sourceDir, target))
+				}
+
+				out += value
+			}
+		} else {
+			if c0 == '{' && c1 == '{' {
+				inside = true
+				start = pos - 1
+				out += text[end:start]
+			}
+		}
+		c0 = c1
+	}
+
+	out += text[end:]
+
+	return out
+}
+
+func send(message *utils.OutMessage, request *utils.OutRequest, client *slack.Client) utils.OutResponse {
+	opts := []slack.MsgOption{
+		slack.MsgOptionPostMessageParameters(message.PostMessageParameters),
+	}
+	if message.Text != "" {
+		opts = append(opts, slack.MsgOptionText(message.Text, false))
+	}
+	if len(message.Attachments) > 0 {
+		opts = append(opts, slack.MsgOptionAttachments(message.Attachments...))
+	}
+	if len(message.Blocks) > 0 {
+		opts = append(opts, slack.MsgOptionBlocks(message.Blocks...))
+	}
+
+	_, timestamp, err := client.PostMessage(request.Source.ChannelID, opts...)
+
+	if err != nil {
+		fatal("sending", err)
+	}
+
+	var response utils.OutResponse
+	response.Version = utils.Version{"timestamp": timestamp}
+	return response
 }
 
 func fatal(doing string, err error) {
-    fmt.Fprintf(os.Stderr, "Error " + doing + ": " + err.Error() + "\n")
-    os.Exit(1)
+	fmt.Fprintf(os.Stderr, "Error "+doing+": "+err.Error()+"\n")
+	os.Exit(1)
 }
 
 func fatal1(reason string) {
-    fmt.Fprintf(os.Stderr, reason + "\n")
-    os.Exit(1)
+	fmt.Fprintf(os.Stderr, reason+"\n")
+	os.Exit(1)
 }
