@@ -20,9 +20,7 @@ func main() {
 	sourceDir := os.Args[1]
 
 	var request utils.OutRequest
-
-	err := json.NewDecoder(os.Stdin).Decode(&request)
-	if err != nil {
+	if err := json.NewDecoder(os.Stdin).Decode(&request); err != nil {
 		fatal("Parsing request.", err)
 	}
 
@@ -39,7 +37,6 @@ func main() {
 	}
 
 	var message *utils.OutMessage
-
 	if len(request.Params.MessageFile) != 0 {
 		message = new(utils.OutMessage)
 		readMessageFile(filepath.Join(sourceDir, request.Params.MessageFile), message)
@@ -48,16 +45,12 @@ func main() {
 		interpolateMessage(message, sourceDir)
 	}
 
-	{
-		fmt.Fprintf(os.Stderr, "About to send this message:\n")
-		m, _ := json.MarshalIndent(message, "", "  ")
-		fmt.Fprintf(os.Stderr, "%s\n", m)
-	}
+	fmt.Fprintf(os.Stderr, "Sending message:\n")
+	m, _ := json.MarshalIndent(message, "", "  ")
+	fmt.Fprintf(os.Stderr, "%s\n", m)
 
 	client := slack.New(request.Source.Token)
-
 	response := send(message, &request, client)
-
 	if err := json.NewEncoder(os.Stdout).Encode(&response); err != nil {
 		fatal("encoding response", err)
 	}
@@ -113,7 +106,7 @@ func interpolateMessageBlock(block slack.Block, sourceDir string) slack.Block {
 		return b
 	case slack.MBTSection:
 		b := block.(*slack.SectionBlock)
-		interpolateMessageMixedElement(b.Text, sourceDir)
+		b.Text = interpolateTextBlock(b.Text, sourceDir)
 		for i, e := range b.Fields {
 			b.Fields[i] = interpolateTextBlock(e, sourceDir)
 		}
@@ -123,15 +116,21 @@ func interpolateMessageBlock(block slack.Block, sourceDir string) slack.Block {
 }
 
 func interpolateMessageBlockElement(elem slack.BlockElement, sourceDir string) slack.BlockElement {
+	switch elem.ElementType() {
+	case slack.METButton:
+		e := elem.(*slack.ButtonBlockElement)
+		e.Text.Text = interpolate(e.Text.Text, sourceDir)
+		return e
+	}
 	return elem
 }
 
 func interpolateMessageMixedElement(elem slack.MixedElement, sourceDir string) slack.MixedElement {
 	switch elem.MixedElementType() {
 	case slack.MixedElementText:
-		e := elem.(slack.TextBlockObject)
+		e := elem.(*slack.TextBlockObject)
 		e.Text = interpolate(e.Text, sourceDir)
-		return &e
+		return e
 	}
 	return elem
 }

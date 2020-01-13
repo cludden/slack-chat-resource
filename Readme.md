@@ -19,8 +19,8 @@ with the following benefits:
 
 Docker Store:
 
-- [jakobleben/slack-read-resource](https://store.docker.com/community/images/jakobleben/slack-read-resource)
-- [jakobleben/slack-post-resource](https://store.docker.com/community/images/jakobleben/slack-post-resource)
+- [cludden/slack-read-resource](https://store.docker.com/community/images/cludden/slack-read-resource)
+- [cludden/slack-post-resource](https://store.docker.com/community/images/cludden/slack-post-resource)
 
 ## Version Format
 
@@ -38,7 +38,7 @@ Usage in a pipeline:
         - name: slack-read-resource
           type: docker-image
           source:
-            repository: jakobleben/slack-read-resource
+            repository: cludden/slack-read-resource
 
     resources:
         - name: slack-in
@@ -122,7 +122,7 @@ Usage in a pipeline:
         - name: slack-post-resource
           type: docker-image
           source:
-            repository: jakobleben/slack-post-resource
+            repository: cludden/slack-post-resource
 
     resources:
         - name: slack-out
@@ -162,9 +162,9 @@ The message is described just as the argument to the [`chat.postMessage`](https:
 
 When using `message`, some message parameters support string interpolation to insert contents of arbitrary files or values of environment variables. The following table gives rules for substitution:
 
-| Pattern | Substituted By |
-|---------|----------------|
-| `{{filename}}` | Contents of file `filename` |
+| Pattern         | Substituted By                           |
+| --------------- | ---------------------------------------- |
+| `{{filename}}`  | Contents of file `filename`              |
 | `{{$variable}}` | Value of environment variable `variable` |
 
 The following message fields support string interpolation:
@@ -180,6 +180,11 @@ The following fields of an attachment support string interpolation:
 - `pretext`
 - `text`
 - `footer`
+
+The following blocks support interpolation:
+- `Section.Text`
+- `Button.Text.Text`
+- `Context.Elements.*.Text`
 
 ### Example
 
