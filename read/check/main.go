@@ -92,7 +92,7 @@ func getMessages(request *utils.CheckRequest, client *slack.Client) *slack.Histo
 	var history *slack.History
 	history, err := client.GetChannelHistory(request.Source.ChannelID, params)
 	if err != nil {
-		fatal("getting messages.", err)
+		fatal("getting messages", err)
 	}
 
 	return history
