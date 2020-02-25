@@ -3,9 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+
 	"github.com/cludden/slack-chat-resource/utils"
 	"github.com/nlopes/slack"
-	"os"
 )
 
 func main() {
@@ -23,6 +24,10 @@ func main() {
 		fatal1("Missing source field: channel_id.")
 	}
 
+	if request.Source.CheckMostRecent < 0 {
+		fatal1("check_most_recent cannot be negative.")
+	}
+
 	if request.Source.Filter != nil {
 		fmt.Fprintf(os.Stderr, "Filter:\n")
 		fmt.Fprintf(os.Stderr, "  - author: %s\n", request.Source.Filter.AuthorID)
@@ -36,15 +41,15 @@ func main() {
 	}
 
 	client := slack.New(request.Source.Token)
-	history := getMessages(&request, client)
-	versions := []utils.Version{}
+	messages := getMessages(&request, client)
+	versions := utils.CheckResponse{}
 
-	for _, msg := range history.Messages {
+	for _, msg := range messages {
 		accept, stop := processMessage(&msg, &request, client)
 
 		if accept {
 			version := utils.Version{"timestamp": msg.Msg.Timestamp}
-			versions = append(versions, version)
+			versions = append([]utils.Version{version}, versions...)
 		}
 
 		if stop {
@@ -52,12 +57,11 @@ func main() {
 		}
 	}
 
-	response := utils.CheckResponse{}
-	for i := len(versions) - 1; i >= 0; i-- {
-		response = append(response, versions[i])
+	if _, ok := request.Version["timestamp"]; ok {
+		versions = append([]utils.Version{request.Version}, versions...)
 	}
 
-	json.NewEncoder(os.Stdout).Encode(&response)
+	json.NewEncoder(os.Stdout).Encode(&versions)
 }
 
 // Channel type definition
@@ -78,24 +82,37 @@ type Channels struct {
 	meta     ChannelsMeta
 }
 
-func getMessages(request *utils.CheckRequest, client *slack.Client) *slack.History {
-	params := slack.NewHistoryParameters()
-
-	if version, ok := request.Version["timestamp"]; ok {
-		params.Oldest = version
-		fmt.Fprintf(os.Stderr, "Request timestamp: %s\n", version)
+func getMessages(request *utils.CheckRequest, client *slack.Client) []slack.Message {
+	mostRecent := request.Source.CheckMostRecent
+	if mostRecent == 0 {
+		mostRecent = 1000
 	}
 
-	params.Inclusive = true
-	params.Count = 100
+	batchCount := mostRecent/1000 + 1
+	lastBatchSize := mostRecent % 1000
 
-	var history *slack.History
-	history, err := client.GetChannelHistory(request.Source.ChannelID, params)
-	if err != nil {
-		fatal("getting messages", err)
+	var messages []slack.Message
+	for i := 0; i < batchCount; i++ {
+		// build parameters
+		params := slack.NewHistoryParameters()
+		params.Count = 1000
+		if i == batchCount-1 {
+			params.Count = lastBatchSize
+		}
+		if i > 0 {
+			params.Latest = messages[len(messages)-1].Timestamp
+		}
+
+		var history *slack.History
+		history, err := client.GetChannelHistory(request.Source.ChannelID, params)
+		if err != nil {
+			fatal("getting messages", err)
+		}
+
+		messages = append(messages, history.Messages...)
 	}
 
-	return history
+	return messages
 }
 
 func processMessage(message *slack.Message, request *utils.CheckRequest,

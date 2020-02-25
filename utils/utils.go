@@ -2,8 +2,9 @@ package utils
 
 import (
 	"encoding/json"
-	"github.com/nlopes/slack"
 	"regexp"
+
+	"github.com/nlopes/slack"
 )
 
 // Regexp type definition
@@ -34,10 +35,11 @@ type MessageFilter struct {
 
 // Source type definition
 type Source struct {
-	Token       string         `json:"token"`
-	ChannelID   string         `json:"channel_id"`
-	Filter      *MessageFilter `json:"matching"`
-	ReplyFilter *MessageFilter `json:"not_replied_by"`
+	Token           string         `json:"token"`
+	ChannelID       string         `json:"channel_id"`
+	CheckMostRecent int            `json:"check_most_recent"`
+	Filter          *MessageFilter `json:"matching"`
+	ReplyFilter     *MessageFilter `json:"not_replied_by"`
 }
 
 // Version type definition
