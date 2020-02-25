@@ -44,8 +44,10 @@ func main() {
 	messages := getMessages(&request, client)
 	versions := utils.CheckResponse{}
 
+	current, _ := request.Version["timestamp"]
+
 	for _, msg := range messages {
-		accept, stop := processMessage(&msg, &request, client)
+		accept, stop := processMessage(&msg, &request, current, client)
 
 		if accept {
 			version := utils.Version{"timestamp": msg.Msg.Timestamp}
@@ -116,7 +118,12 @@ func getMessages(request *utils.CheckRequest, client *slack.Client) []slack.Mess
 }
 
 func processMessage(message *slack.Message, request *utils.CheckRequest,
-	client *slack.Client) (accept bool, stop bool) {
+	currentVersion string, client *slack.Client) (accept bool, stop bool) {
+
+	// stop processing if we hit our current version
+	if currentVersion != "" && message.Timestamp == currentVersion {
+		return false, true
+	}
 
 	isReply := len(message.Msg.ThreadTimestamp) > 0 &&
 		message.Msg.ThreadTimestamp != message.Msg.Timestamp
