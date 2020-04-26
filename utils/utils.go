@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"regexp"
 
-	"github.com/nlopes/slack"
+	"github.com/slack-go/slack"
 )
 
 // Regexp type definition

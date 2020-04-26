@@ -3,12 +3,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/cludden/slack-chat-resource/utils"
-	"github.com/nlopes/slack"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/cludden/slack-chat-resource/utils"
+	"github.com/slack-go/slack"
 )
 
 func main() {

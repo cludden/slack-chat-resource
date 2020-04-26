@@ -14,6 +14,7 @@ builds:
     goarch:
       - amd64
     goos:
+      - darwin
       - linux
   - <<: *build
     id: slack-post-resource-in
@@ -85,7 +86,7 @@ dockers:
       - slack-read-resource-out
     dockerfile: Dockerfile
     image_templates:
-      - "cludden/slack-read-resource:latest"
+      #- "cludden/slack-read-resource:latest"
       - "cludden/slack-read-resource:{{ .Tag }}"
       - "cludden/slack-read-resource:v{{ .Major }}"
   - binaries:
@@ -98,6 +99,6 @@ dockers:
       - slack-post-resource-out
     dockerfile: Dockerfile
     image_templates:
-      - "cludden/slack-post-resource:latest"
+      #- "cludden/slack-post-resource:latest"
       - "cludden/slack-post-resource:{{ .Tag }}"
       - "cludden/slack-post-resource:v{{ .Major }}"
