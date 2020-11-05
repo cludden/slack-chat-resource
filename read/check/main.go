@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/cludden/slack-chat-resource/utils"
-	"github.com/nlopes/slack"
+	"github.com/slack-go/slack"
 )
 
 func main() {
@@ -87,26 +87,31 @@ type Channels struct {
 func getMessages(request *utils.CheckRequest, client *slack.Client) []slack.Message {
 	mostRecent := request.Source.CheckMostRecent
 	if mostRecent == 0 {
-		mostRecent = 1000
+		mostRecent = 100
 	}
 
 	batchCount := mostRecent/1000 + 1
 	lastBatchSize := mostRecent % 1000
+	limit := mostRecent
+	if limit > 1000 {
+		limit = 1000
+	}
 
 	var messages []slack.Message
 	for i := 0; i < batchCount; i++ {
 		// build parameters
-		params := slack.NewHistoryParameters()
-		params.Count = 1000
+		params := &slack.GetConversationHistoryParameters{
+			ChannelID: request.Source.ChannelID,
+			Limit:     limit,
+		}
 		if i == batchCount-1 {
-			params.Count = lastBatchSize
+			params.Limit = lastBatchSize
 		}
 		if i > 0 {
 			params.Latest = messages[len(messages)-1].Timestamp
 		}
 
-		var history *slack.History
-		history, err := client.GetChannelHistory(request.Source.ChannelID, params)
+		history, err := client.GetConversationHistory(params)
 		if err != nil {
 			fatal("getting messages", err)
 		}

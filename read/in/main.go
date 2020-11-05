@@ -3,11 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/cludden/slack-chat-resource/utils"
-	"github.com/nlopes/slack"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/cludden/slack-chat-resource/utils"
+	"github.com/slack-go/slack"
 )
 
 // FIMXE: Pass params to target resource
@@ -48,12 +49,14 @@ func main() {
 }
 
 func get(request *utils.InRequest, destination string, client *slack.Client) utils.InResponse {
-	params := slack.NewHistoryParameters()
-	params.Latest = request.Version["timestamp"]
-	params.Inclusive = true
-	params.Count = 1
+	params := &slack.GetConversationHistoryParameters{
+		ChannelID: request.Source.ChannelID,
+		Latest:    request.Version["timestamp"],
+		Inclusive: true,
+		Limit:     1,
+	}
 
-	history, err := client.GetChannelHistory(request.Source.ChannelID, params)
+	history, err := client.GetConversationHistory(params)
 	if err != nil {
 		fatal("getting message", err)
 	}
